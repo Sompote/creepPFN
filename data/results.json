@@ -1,0 +1,107 @@
+{
+  "protocol": "post-selection retraining at saved fold-validation hyperparameters; five NU source-disjoint folds",
+  "architecture": "full width-256, four-layer, four-head CreepPFN",
+  "seeds": [
+    45,
+    46,
+    47
+  ],
+  "cohort": {
+    "curves": 610,
+    "sources": 65,
+    "future_readings": 5646
+  },
+  "choice_sha256": "fa0b8c4a6a91929b35e2ee8f1b9ad79ab2a2bd26e020d9c3f4c8b7c227117bd7",
+  "selection_limit": "prior NU outer-test outcomes had been examined; this reassessment is exploratory, not a new independent confirmation",
+  "metrics": {
+    "curves": 610,
+    "sources": 65,
+    "observations": 5646,
+    "source_macro_mae": 6.526279355863137,
+    "source_macro_normalized_mae": 0.17404131632078995,
+    "median_curve_normalized_mae": 0.13004907660184883,
+    "source_macro_coverage90": 0.9450750010937923,
+    "source_macro_interval_width90": 31.731703913918793,
+    "source_macro_mae_95ci": [
+      4.990287992320846,
+      8.287447720282954
+    ],
+    "source_macro_normalized_mae_95ci": [
+      0.1495792348410075,
+      0.2014439155653564
+    ]
+  },
+  "fold_metrics": {
+    "fold_01": {
+      "curves": 124,
+      "sources": 12,
+      "observations": 918,
+      "source_macro_mae": 6.508596093605697,
+      "source_macro_normalized_mae": 0.19543964473256736,
+      "median_curve_normalized_mae": 0.12414638224928654,
+      "source_macro_coverage90": 0.967161731634183,
+      "source_macro_interval_width90": 40.33431253693126
+    },
+    "fold_02": {
+      "curves": 124,
+      "sources": 14,
+      "observations": 1036,
+      "source_macro_mae": 8.977068032165429,
+      "source_macro_normalized_mae": 0.18166162599053423,
+      "median_curve_normalized_mae": 0.1892265236560153,
+      "source_macro_coverage90": 0.9587299788192646,
+      "source_macro_interval_width90": 39.85884759468038
+    },
+    "fold_03": {
+      "curves": 122,
+      "sources": 13,
+      "observations": 1019,
+      "source_macro_mae": 4.893016352150873,
+      "source_macro_normalized_mae": 0.14221954280608357,
+      "median_curve_normalized_mae": 0.1259501780205432,
+      "source_macro_coverage90": 0.9829807692307693,
+      "source_macro_interval_width90": 31.57315004912081
+    },
+    "fold_04": {
+      "curves": 120,
+      "sources": 13,
+      "observations": 1648,
+      "source_macro_mae": 7.5330845193571685,
+      "source_macro_normalized_mae": 0.16988975977204218,
+      "median_curve_normalized_mae": 0.1259735279169344,
+      "source_macro_coverage90": 0.8644741965393675,
+      "source_macro_interval_width90": 23.529072360715336
+    },
+    "fold_05": {
+      "curves": 120,
+      "sources": 13,
+      "observations": 1025,
+      "source_macro_mae": 4.529749325224233,
+      "source_macro_normalized_mae": 0.18205585589826345,
+      "median_curve_normalized_mae": 0.11925855297913876,
+      "source_macro_coverage90": 0.9526769256157556,
+      "source_macro_interval_width90": 23.39971125447317
+    }
+  },
+  "paired": {
+    "historical": {
+      "reference": "selected_ensemble_3seed",
+      "new_minus_reference_pctpt": 0.6037950198507382,
+      "ci95_pctpt": [
+        0.17091831065158802,
+        1.0541108100718772
+      ],
+      "matched_sources": 65
+    },
+    "tuned_full": {
+      "reference": "full",
+      "new_minus_reference_pctpt": 0.12185145501809687,
+      "ci95_pctpt": [
+        -0.4180885182590236,
+        0.6835154336866399
+      ],
+      "matched_sources": 65
+    }
+  },
+  "uncertainty": "2000 source bootstrap draws; fixed seeds and settings; selection uncertainty omitted"
+}
