@@ -2,41 +2,26 @@
 
 ## What is included
 
-The complete Python source used for generator fitting, synthetic task sampling,
-training, fine-tuning, evaluation, ablation analysis, and SHAP analysis is in
-`creep_prior/`. The processed five-fold data and fitted training-only priors are
-in `data/folds/`. The 15 final fine-tuned checkpoints are in `models/`.
+The Python package `creep_prior/` contains the network, the training and evaluation code, and the subpackage `creep_prior/bayes/`, which implements the Kelvin4 curve family, the NumPyro fit of the hierarchical Bayesian prior and the sampler of synthetic creep tests. The processed five-fold data and the fitted priors are in `data/folds/`, the fold settings are in `data/training_settings.json`, and the 15 final fine-tuned networks are in `models/`. The scripts that reproduce the tables and figures of the paper, including the machine-learning baselines and the SHAP analysis, are in `research/` and are described in `research/README.md`.
 
-The processed data are sufficient to repeat synthetic pretraining and real-curve
-fine-tuning from the saved fold priors. Re-fitting the priors from original NU
-tables requires the three raw files expected by `creep_prior.make_folds` and is
-documented in the source. Those upstream raw exports are not needed by the app.
+## Fit a prior
 
-## Reproduce one final member
-
-From the repository root:
+The packaged priors can be refitted from the fold data with
 
 ```bash
-creep-pfn train \
-  --fold fold_01 \
-  --seed 45 \
-  --tasks 5000 \
-  --epochs 25 \
-  --patience 6 \
-  --device auto \
-  --out runs/fold_01_seed45
+pip install -e ".[research]"
+python -m creep_prior.bayes.fit_prior --folds fold_01 --out runs/priors
 ```
 
-This command reads the fold-specific model configuration and learning rates from
-`data/architecture_choice.json`. Every pretraining epoch samples fresh synthetic
-tasks from the fold's training-only prior. Fine-tuning then uses only real curves
-marked `train`. Checkpoint selection uses only curves marked `validation`. The
-outer-test partition is not loaded during fitting.
+which runs four NUTS chains of 1,500 warm-up and 500 retained draws on all training readings of the fold and stores the posterior draws with the discrepancy scale of 0.01 chosen on validation sources.
 
-Repeat seeds 45, 46, and 47 for each of the five folds to reproduce the full set
-of final members. Exact floating-point identity can depend on the accelerator,
-PyTorch build, and deterministic-kernel support. Saved configurations, histories,
-input hashes, and source partitions provide the audit trail.
+## Retrain one network
+
+```bash
+creep-pfn train --fold fold_01 --seed 45 --device auto --out runs/fold_01_seed45
+```
+
+This command reads the fold settings from `data/training_settings.json` and pretrains the network on 5,000 new synthetic tests per round drawn from the fold's prior, for at most 25 rounds with early stopping on the validation sources, before fine-tuning it on the measured training curves. The outer test sources are never loaded during fitting, and running seeds 45, 46 and 47 for all five folds (`sh research/train_all.sh`) reproduces the 15 networks, which together used 1,230,000 synthetic tests in the paper. Exact floating-point identity can depend on the accelerator and the PyTorch build, while the saved configurations, histories and input hashes provide the audit trail.
 
 ## Protocol checks
 
@@ -45,7 +30,4 @@ creep-pfn verify
 pytest
 ```
 
-`verify` checks that every checkpoint references the packaged fold prior and that
-training, validation, and test source identifiers do not overlap. The tests cover
-future-target isolation, padding, chronology, generator reproducibility, grouped
-ensemble intervals, and deployment inference.
+`verify` checks that every checkpoint references its packaged fold prior and that the training, validation and test sources do not overlap, while the tests cover future-target isolation, padding, chronology, the synthetic-task sampler, ensemble intervals and deployment inference.

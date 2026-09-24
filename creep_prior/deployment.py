@@ -45,7 +45,7 @@ def repository_root(root: str | Path | None = None) -> Path:
     )
 
 
-def _validate_inputs(times, compliance, query_days, rho, fc, e28):
+def _validate_inputs(times, compliance, query_days, rho, fc, e28, stress_ratio=float("nan")):
     times = np.asarray(times, dtype=float)
     compliance = np.asarray(compliance, dtype=float)
     query_days = np.asarray(query_days, dtype=float)
@@ -71,6 +71,8 @@ def _validate_inputs(times, compliance, query_days, rho, fc, e28):
         raise ValueError("Compressive strength must be a positive value in MPa.")
     if not (np.isnan(e28) or (np.isfinite(e28) and e28 > 0)):
         raise ValueError("E28 must be positive in MPa or left missing.")
+    if not (np.isnan(stress_ratio) or (np.isfinite(stress_ratio) and 0 < stress_ratio < 1)):
+        raise ValueError("Stress ratio must lie between 0 and 1 or be left missing.")
     return times, compliance, query_days
 
 
@@ -112,6 +114,7 @@ def forecast_ensemble(
     rho: float,
     fc: float,
     e28: float = float("nan"),
+    stress_ratio: float = float("nan"),
     fold: str = "all",
     device: str = "auto",
     root: str | Path | None = None,
@@ -119,12 +122,13 @@ def forecast_ensemble(
     """Forecast compliance increments with a three- or fifteen-member ensemble.
 
     Parameters use the manuscript units: elapsed days, compliance in
-    microstrain/MPa, density in kg/m^3, and strength/modulus in MPa.  The first
+    microstrain/MPa, density in kg/m^3, strength/modulus in MPa, and the stress
+    ratio as applied stress / compressive strength at loading (NaN if missing).  The first
     measured compliance is subtracted internally; it is added back only in the
     ``predicted_compliance`` columns.
     """
     times, compliance, query_days = _validate_inputs(
-        times, compliance, query_days, float(rho), float(fc), float(e28)
+        times, compliance, query_days, float(rho), float(fc), float(e28), float(stress_ratio)
     )
     bundle = repository_root(root)
     folds = _selected_folds(fold)
@@ -134,7 +138,7 @@ def forecast_ensemble(
     for fold_name in folds:
         prior_path = bundle / "data/folds" / fold_name / "prior.json"
         prior = json.loads(prior_path.read_text())
-        meta = pd.DataFrame([dict(rho=rho, fc=fc, E28=e28, anchor_day=times[0])])
+        meta = pd.DataFrame([dict(rho=rho, fc=fc, E28=e28, anchor_day=times[0], stress_ratio=stress_ratio)])
         record = dict(
             context_times=times,
             context_values=compliance - compliance[0],

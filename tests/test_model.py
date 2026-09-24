@@ -22,7 +22,7 @@ class ModelTests(unittest.TestCase):
         self.model.eval()
         records = [dict(context_times=np.array([1., 3., 7.]), context_values=np.array([0., 4., 8.]),
                         query_times=np.array([28., 90.]), targets=np.array([14., 25.]),
-                        features=np.array([.1, .2, -.1, 0., .1]))]
+                        features=np.array([.1, .2, -.1, 0., .1, .4, 0.]))]
         self.batch = tensors(pack(records), torch.device('cpu'))
 
     def test_future_values_do_not_change_predictions(self):
@@ -99,7 +99,7 @@ class ModelTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             prior = root / 'prior.json'
-            prior.write_text(json.dumps(dict(scaler=dict(median=[0.] * 5, mean=[0.] * 5, scale=[1.] * 5))))
+            prior.write_text(json.dumps(dict(scaler=dict(median=[0.] * 7, mean=[0.] * 7, scale=[1.] * 7))))
             checkpoint = root / 'model.pt'
             torch.save(dict(state_dict=self.model.state_dict(), model_config=self.model.config,
                             training_config=dict(prior_sha256=sha256(prior))), checkpoint)

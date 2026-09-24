@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "creep-pfn"
-version = "0.1.0"
-description = "Supplementary CreepPFN application and reproducibility package"
+version = "0.2.0"
+description = "CreepPFN: concrete creep forecasting with a transformer trained on a hierarchical Bayesian prior"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8,<9"]
+research = ["jax>=0.4", "numpyro>=0.15", "xgboost>=2"]
 
 [project.scripts]
 creep-pfn = "creep_prior.application:main"

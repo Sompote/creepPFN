@@ -1,9 +1,10 @@
 cff-version: 1.2.0
 message: "If you use this software, cite the accompanying CreepPFN manuscript."
-title: "CreepPFN: A Material-Conditioned Prior-Data Fitted Network for Concrete Creep Forecasting"
+title: "CreepPFN: Forecasting Concrete Creep with a Transformer Trained on a Hierarchical Bayesian Prior"
 type: software
-version: 0.1.0
-date-released: 2026-09-16
+version: 0.2.0
+date-released: 2026-09-25
+repository-code: "https://github.com/Sompote/creepPFN"
 authors:
   - family-names: Youwai
     given-names: Sompote

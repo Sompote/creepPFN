@@ -22,7 +22,7 @@ from sklearn.model_selection import GroupKFold
 
 HORIZON = 160.0
 FAMILIES = ("weibull", "kelvin_log")
-FEATURES = ("log_rho", "log_fc", "log_E28", "E28_missing", "log1p_anchor_day")
+FEATURES = ("log_rho", "log_fc", "log_E28", "E28_missing", "log1p_anchor_day", "stress_ratio", "stress_ratio_missing")
 TIMESCALES = np.array([0.3, 3.0, 30.0, 300.0])
 
 
@@ -97,9 +97,13 @@ def assign_splits(meta, seed):
 
 
 def raw_features(meta):
+    meta = meta.copy()
+    for column in ('rho', 'fc', 'E28', 'anchor_day', 'stress_ratio'):
+        meta[column] = pd.to_numeric(meta[column], errors='coerce')
     values = np.column_stack([np.log(meta.rho), np.log(meta.fc),
                               np.log(meta.E28), meta.E28.isna().astype(float),
-                              np.log1p(meta.anchor_day)])
+                              np.log1p(meta.anchor_day),
+                              meta.stress_ratio, meta.stress_ratio.isna().astype(float)])
     return values
 
 
@@ -202,11 +206,16 @@ def regression(x, z, groups, alpha):
     return np.vstack([model.intercept_, model.coef_.T])
 
 
-def fit_family(meta, observations, family, scaler, rng, bootstraps):
+def fit_family(meta, observations, family, scaler, rng, bootstraps, cached_fits=None):
     params, noise, diagnostics = [], [], []
     for row in meta.itertuples(index=False):
         t, y = observations[row.curve_id]
-        p, error, ns = fit_curve(family, t, y)
+        if cached_fits is None:
+            p, error, ns = fit_curve(family, t, y)
+        else:
+            saved = cached_fits[(row.curve_id, family)]
+            p = np.asarray(json.loads(saved['params']), dtype=float)
+            error, ns = float(saved['normalized_rmse']), float(saved['noise_fraction'])
         params.append(encode(family, p))
         noise.append(ns)
         diagnostics.append(dict(curve_id=row.curve_id, family=family,

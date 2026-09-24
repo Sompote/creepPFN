@@ -2,140 +2,42 @@
 
 ## Model summary
 
-CreepPFN is a material-conditioned prior-data fitted network for concrete creep
-forecasting. It predicts later compliance from a short, irregular sequence of
-early measurements. The model combines a synthetic task generator, an
-attention-based predictor, and real-curve fine-tuning.
+CreepPFN is a transformer-based prior-data fitted network that forecasts the creep compliance of concrete, together with a 90% range, from density, compressive strength, the 28-day modulus, the stress ratio and the readings of the first ten days of a creep test. Because measured creep curves are too few and too unevenly spread to train a model that generalizes to new laboratories, the network is first trained on synthetic creep tests drawn from a hierarchical Bayesian model of past tests and is then fine-tuned on measured curves.
 
-![CreepPFN workflow](assets/paper/model_workflow.png)
+![CreepPFN flow](assets/paper/model_workflow.png)
 
-The figure summarizes two phases. During learning, real training-source curves
-calibrate a material-linked generator. Generated tasks expose the network to
-varied curve shapes and observation schedules. Measured training curves then
-fine-tune the network. During application, frozen weights process one new
-specimen's material descriptors, early readings, and requested future times.
+In each source-disjoint fold, the hierarchical Bayesian model is fitted by Hamiltonian Monte Carlo to all readings of the training curves. It describes a typical curve for given material properties and separates the variation between literature sources, between specimens and between readings, so that the synthetic tests follow the distribution of real tests rather than an assumed one. Each curve follows the Kelvin4 family, a sum of three Kelvin terms with retardation times of 0.3, 3 and 30 days and one logarithmic term, and a discrepancy term calibrated on validation sources widens the synthetic curves with forecast distance. The 15 networks of the five folds were trained on 1,230,000 synthetic tests in total.
 
 ## Inputs
 
 | Input | Unit | Requirement |
 |---|---:|---|
-| Density, $\rho$ | kg/m³ | Positive value |
-| Compressive strength, $f_c$ | MPa | Positive value |
-| Recorded 28-day elastic modulus, $E_{28}$ | MPa | Positive value or missing |
-| Early elapsed times | days since loading | At least two, strictly increasing, through day 10 |
+| Density, ρ | kg/m³ | Positive value |
+| Compressive strength, f_c | MPa | Positive value |
+| Recorded 28-day elastic modulus, E28 | MPa | Positive value or missing |
+| Stress ratio, applied stress / strength at loading | – | Between 0 and 1, or missing |
+| Early elapsed times | days since loading | At least two, strictly increasing, up to day 10 |
 | Early compliance readings | microstrain/MPa | One value at each early time |
 | Query times | days since loading | After day 10 and no later than day 160 |
 
-The first recorded time is the **anchor**. Its compliance defines the zero
-reference for the response increment. For readings on days 1, 3, and 7, the
-early history contains those three time-response pairs and the anchor is day 1.
-A measurement exactly on day 10 is not required.
+The first reading is the anchor, and the model predicts the compliance increase after it. Missing modulus or stress-ratio values are flagged and replaced by training medians.
 
 ## Architecture
 
 ![CreepPFN architecture](assets/paper/model_architecture.png)
 
-Each early time-response pair becomes a context token. A property network encodes
-density, strength, modulus, modulus missingness, and first-reading time. Four
-self-attention layers relate early readings to one another. Each future query
-then cross-attends to the encoded history. The query includes its elapsed time
-and gap from the last context observation. The selected model has width 256,
-four layers, four attention heads, feed-forward width 768, and 3,099,906
-trainable parameters per member.
+Each early reading becomes a token to which a summary of the material record is added, and a context encoder with four self-attention layers relates the readings to one another. For each requested day, cross-attention takes the relevant information from the encoded readings, and an output head returns a central value and a spread. Each network has 3.1 million weights, and three networks trained with different seeds are averaged, with the 90% range taken from their combined distribution.
 
-Each member predicts a central response and uncertainty scale. A paper fold
-ensemble averages three member medians. Its central 90% interval is calculated
-from their predictive mixture. The application can also pool all 15 members.
-That pooled option is an exploratory deployment ensemble and is not the unit used
-to calculate the paper's cross-validation metric.
+## Evidence
 
-## Training data and leakage controls
+![Test results](assets/paper/nu_results.png)
 
-The NU cohort contains 617 imported curves in 65 literature-source groups. Of
-these, 610 curves have at least two readings through day 10 and at least one later
-reading through day 160. The evaluated target contains 5,646 later readings.
+On 610 curves from 65 literature sources of the NU database that were withheld from training, CreepPFN had the lowest error of all models tested under the same protocol, with a source-averaged normalized mean absolute error of 15.94% (95% interval 13.78–18.22%). It was significantly more accurate than gradient boosting, a neural network and curve fitting of the early readings, and comparable to quantile gradient boosting and a random forest. It was the only model whose 90% range kept its nominal coverage on unseen sources, at 93.6% against 72.2–87.8% for the baselines. Forecast error fell from 25.40% with three days of readings to 17.20% with ten days and 9.58% with 28 days. On external curves, the error was 11.08% for 47 KMUTT laboratory curves and 21.90% for 19 literature curves, where the probable recycled-aggregate concrete curves were poorly forecast.
 
-Five outer folds separate complete literature sources. Within each fold:
+![Descriptor contributions](assets/paper/shap_descriptors.png)
 
-1. only training sources fit the scaler, missing-modulus imputation, and curve generator;
-2. synthetic pretraining samples tasks from that training-only generator;
-3. real fine-tuning uses only training-source curves;
-4. validation sources select hyperparameters and checkpoints; and
-5. outer-test sources are reserved for evaluation.
+A SHAP analysis with each specimen's readings held fixed showed that higher strength and modulus lower the forecast creep and that a higher stress ratio raises it, in line with Eurocode 2 and the fib Model Code 2010. These attributions describe model behaviour, not causal material effects.
 
-Later test responses never enter the application input. Synthetic tasks increase
-training variety, but do not create independent experiments or remove distribution shift.
+## Intended use and limits
 
-![Data characteristics](assets/paper/data_characteristics.png)
-
-## Reported evidence
-
-The revised five-fold ensembles attained **17.40% source-macro NMAE**, with a
-95% source-bootstrap interval of **14.96–20.14%**. The corresponding source-macro
-MAE was 6.53 microstrain/MPa. Aggregate coverage of the nominal 90% marginal
-interval was 94.51%, with mean width 31.73 microstrain/MPa.
-
-![NU result comparison](assets/paper/nu_results.png)
-
-These estimates are conditional on the reported source definitions, cohort,
-training seeds, model-selection procedure, and 160-day task. The revised
-architecture was chosen after earlier inspection of the same outer partitions.
-The result is therefore a post-selection reassessment rather than new independent
-confirmation.
-
-## Architecture evidence
-
-![Architecture ablations](assets/paper/architecture_ablation.png)
-
-Removing both attention paths increased source-macro NMAE by 1.69 percentage
-points, with a paired 95% source-bootstrap interval of 0.34–3.13 points. Removing
-the query-gap feature increased it by 0.86 points (0.27–1.46). Intervals for six
-other removals included zero. These exploratory comparisons are unadjusted for
-multiple testing. Attention removal also changes parameter count, so it does not
-isolate attention from model capacity.
-
-## Model attribution
-
-![Grouped SHAP analysis](assets/paper/shap_attribution.png)
-
-At day 90, the source-weighted absolute attribution shares were 89.97% for early
-history plus anchor, 6.99% for modulus plus missingness, 2.40% for strength, and
-0.64% for density. Early history contains several times and responses, whereas
-density and strength are single descriptors. The group magnitudes are therefore
-not equal-sized comparisons of physical variables. SHAP explains model outputs
-relative to the chosen background; it does not establish causal material effects,
-prediction accuracy, or explained variance.
-
-## Example forecasts
-
-![Forecast examples](assets/paper/forecast_examples.png)
-
-Black points show the measured early context. Orange crosses are later measured
-values reserved for evaluation. The blue line is the mean of member medians, and
-the shaded region is the central 90% marginal predictive interval. The displayed
-examples do not replace cohort-level evaluation.
-
-## Intended use
-
-The model supports research on early-to-later concrete creep forecasting and can
-help explore measurement schedules or candidate future responses. Appropriate use
-requires the same input definitions and units as the training protocol. New
-material classes, laboratories, or response conversions require independent
-validation.
-
-## Limitations and out-of-scope uses
-
-- The validated forecast horizon ends at day 160.
-- The model does not represent unloading, cyclic loading, changing environments,
-  accelerating tertiary creep, or arbitrary stress histories.
-- Humidity, mixture composition, loading age, stress, geometry, and curing
-  conditions are not explicit application inputs.
-- Output trajectories are not constrained to be monotonic or nonnegative.
-- Predictive intervals are marginal at each time, not simultaneous bounds for a
-  complete trajectory.
-- Aggregate interval coverage does not establish calibration for every material,
-  source, or horizon.
-- The app does not calculate structural deformation or verify structural safety.
-
-CreepPFN is a research model. It does not replace creep testing, constitutive
-assessment, code compliance, or review by a qualified structural engineer.
+CreepPFN is a research tool for forecasting laboratory creep compliance from a short test and for planning test duration. It is evaluated only up to day 160 and does not use humidity, mixture composition, loading age, stress history or specimen geometry. Its output is not constrained to increase monotonically, its 90% range applies at each day separately rather than to the whole curve, and it has not been shown to handle concretes that are rare in the training data, such as recycled-aggregate concrete. The test sources had been examined in earlier studies, so the reported accuracy is exploratory. The model does not replace creep testing, constitutive assessment or structural engineering review.

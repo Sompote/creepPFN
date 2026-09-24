@@ -13,7 +13,7 @@ from .train import predict, choose_device
 
 
 def forecast(checkpoint_path, prior_path, times, observations, query_times,
-             rho, fc, E28=np.nan, device="cpu"):
+             rho, fc, E28=np.nan, stress_ratio=np.nan, device="cpu"):
     times, observations, query_times = (np.asarray(v, float) for v in (times, observations, query_times))
     if times.ndim != 1 or observations.shape != times.shape or query_times.ndim != 1:
         raise ValueError("Times, observations and queries must be one-dimensional")
@@ -29,11 +29,13 @@ def forecast(checkpoint_path, prior_path, times, observations, query_times,
         raise ValueError("Density and strength must be finite and positive")
     if not (np.isnan(E28) or (np.isfinite(E28) and E28 > 0)):
         raise ValueError("E28 must be positive or missing (NaN)")
+    if not (np.isnan(stress_ratio) or 0 < stress_ratio < 1):
+        raise ValueError("Stress ratio must lie between 0 and 1 or be missing (NaN)")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     if sha256(prior_path) != checkpoint["training_config"]["prior_sha256"]:
         raise ValueError("Prior hash differs from the training prior")
     prior = json.loads(Path(prior_path).read_text())
-    meta = pd.DataFrame([dict(rho=rho, fc=fc, E28=E28, anchor_day=times[0])])
+    meta = pd.DataFrame([dict(rho=rho, fc=fc, E28=E28, anchor_day=times[0], stress_ratio=stress_ratio)])
     record = dict(context_times=times, context_values=observations - observations[0],
                   query_times=query_times, targets=np.zeros_like(query_times),
                   features=transform(meta, prior["scaler"])[0])
@@ -55,6 +57,7 @@ def main():
     parser.add_argument("--rho", type=float, required=True)
     parser.add_argument("--fc", type=float, required=True)
     parser.add_argument("--E28", type=float, default=float("nan"))
+    parser.add_argument("--stress-ratio", type=float, default=float("nan"))
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=4)
     args = parser.parse_args()
@@ -63,7 +66,7 @@ def main():
         raise FileExistsError(args.out)
     context = pd.read_csv(args.context)
     result = forecast(args.checkpoint, args.prior, context.t_day.to_numpy(), context.compliance.to_numpy(),
-                      args.query_days, args.rho, args.fc, args.E28)
+                      args.query_days, args.rho, args.fc, args.E28, args.stress_ratio)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(args.out, index=False)
     print(result.to_string(index=False))

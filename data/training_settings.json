@@ -1,0 +1,74 @@
+{
+  "description": "Fold settings of the final CreepPFN (hierarchical Bayesian prior, Kelvin4, kappa=0.01). Pretraining: 5000 synthetic tasks per epoch, <=25 epochs, patience 6; fine-tuning on measured training-source curves.",
+  "fold_settings": {
+    "fold_01": {
+      "model_config": {
+        "width": 256,
+        "layers": 4,
+        "heads": 4,
+        "dropout": 0.05,
+        "feature_dim": 7
+      },
+      "pre_lr": 0.0006,
+      "fine_lr": 1e-05,
+      "hyperparameter_candidate": "pre_lr_high"
+    },
+    "fold_02": {
+      "model_config": {
+        "width": 256,
+        "layers": 4,
+        "heads": 4,
+        "dropout": 0.05,
+        "feature_dim": 7
+      },
+      "pre_lr": 0.0006,
+      "fine_lr": 1e-05,
+      "hyperparameter_candidate": "pre_lr_high"
+    },
+    "fold_03": {
+      "model_config": {
+        "width": 256,
+        "layers": 4,
+        "heads": 4,
+        "dropout": 0.0,
+        "feature_dim": 7
+      },
+      "pre_lr": 0.0003,
+      "fine_lr": 1e-05,
+      "hyperparameter_candidate": "dropout0"
+    },
+    "fold_04": {
+      "model_config": {
+        "width": 256,
+        "layers": 4,
+        "heads": 4,
+        "dropout": 0.05,
+        "feature_dim": 7
+      },
+      "pre_lr": 0.0003,
+      "fine_lr": 1e-05,
+      "hyperparameter_candidate": "reference"
+    },
+    "fold_05": {
+      "model_config": {
+        "width": 256,
+        "layers": 4,
+        "heads": 4,
+        "dropout": 0.05,
+        "feature_dim": 7
+      },
+      "pre_lr": 0.0003,
+      "fine_lr": 1e-05,
+      "hyperparameter_candidate": "reference"
+    }
+  },
+  "seeds": [
+    45,
+    46,
+    47
+  ],
+  "prior": {
+    "family": "kelvin4",
+    "discrepancy_kappa": 0.01
+  }
+}

@@ -19,10 +19,11 @@ def create_demo(root: str | Path | None = None):
     bundle = repository_root(root)
     figures = bundle / "assets/paper"
 
-    def run(rho, fc, e28, context, query_text, fold):
+    def run(rho, fc, e28, stress_ratio, context, query_text, fold):
         try:
             frame = pd.DataFrame(context, columns=["t_day", "compliance"]).dropna(how="all")
             modulus = float("nan") if e28 in (None, "", 0, 0.0) else float(e28)
+            ratio = float("nan") if stress_ratio in (None, "", 0, 0.0) else float(stress_ratio)
             result = forecast_ensemble(
                 frame.t_day,
                 frame.compliance,
@@ -30,6 +31,7 @@ def create_demo(root: str | Path | None = None):
                 float(rho),
                 float(fc),
                 modulus,
+                stress_ratio=ratio,
                 fold=fold,
                 device="auto",
                 root=root,
@@ -46,7 +48,7 @@ def create_demo(root: str | Path | None = None):
     with gr.Blocks(title="CreepPFN") as demo:
         gr.Markdown(
             "# CreepPFN\n"
-            "Forecast concrete compliance after an early measurement history. "
+            "Forecast concrete creep compliance and a 90% range from a short creep test. "
             "Times are elapsed days since loading. Compliance is in microstrain/MPa."
         )
         with gr.Tabs():
@@ -56,6 +58,7 @@ def create_demo(root: str | Path | None = None):
                         rho = gr.Number(value=2400, label="Density, rho (kg/m^3)")
                         fc = gr.Number(value=40, label="Compressive strength, fc (MPa)")
                         e28 = gr.Number(value=30000, label="28-day elastic modulus, E28 (MPa; 0 = missing)")
+                        stress_ratio = gr.Number(value=0.4, label="Stress ratio, applied stress / strength at loading (0 = missing)")
                         context = gr.Dataframe(
                             headers=["t_day", "compliance"],
                             datatype=["number", "number"],
@@ -77,7 +80,7 @@ def create_demo(root: str | Path | None = None):
                         plot = gr.Plot(label="Forecast")
                         status = gr.Markdown()
                 output = gr.Dataframe(label="Predictions", interactive=False)
-                submit.click(run, [rho, fc, e28, context, query, fold], [output, plot, status])
+                submit.click(run, [rho, fc, e28, stress_ratio, context, query, fold], [output, plot, status])
                 gr.Markdown(
                     "The model predicts the compliance increment relative to the first reading and then adds the "
                     "first reading back for the displayed compliance. Use at least two measurements through day 10. "
@@ -87,72 +90,51 @@ def create_demo(root: str | Path | None = None):
             with gr.Tab("Model card"):
                 gr.Markdown(
                     "## What the model does\n"
-                    "CreepPFN is a material-conditioned prior-data fitted network. It forecasts later concrete "
-                    "creep compliance from density, compressive strength, optional 28-day modulus, and an irregular "
-                    "early measurement history. The first reading is the anchor: its compliance is subtracted before "
-                    "prediction, and the predicted increment is added back for display.\n\n"
+                    "CreepPFN is a transformer-based prior-data fitted network. It forecasts later creep compliance, "
+                    "with a 90% range, from density, compressive strength, optional 28-day modulus, optional stress "
+                    "ratio and the readings up to day 10. The first reading is the anchor: its compliance is subtracted "
+                    "before prediction, and the predicted increment is added back for display.\n\n"
                     "## How it learns\n"
-                    "Each source-disjoint training fold fits a material-linked generator to real training curves. "
-                    "The generator samples plausible curve shapes and irregular schedules for synthetic pretraining. "
-                    "The network is then fine-tuned on measured training curves. Validation sources select checkpoints. "
-                    "Test sources do not calibrate the generator, scaler, imputation, or network."
+                    "In each source-disjoint fold, a hierarchical Bayesian model with an identifiable Kelvin-chain curve "
+                    "family (Kelvin4) is fitted to the measured training curves. It separates material, source, specimen "
+                    "and reading variation. The network is pretrained on synthetic creep tests drawn from this model "
+                    "(1,230,000 in total over the 15 networks) and then fine-tuned on measured training curves. "
+                    "Validation sources select settings; test sources are never used for fitting."
                 )
                 gr.Image(value=str(figures / "model_workflow.png"), interactive=False,
-                         label="Paper Figure 1: CreepPFN workflow")
-                gr.Markdown(
-                    "The frozen network encodes early time-response pairs, adds the material representation, and "
-                    "compares each future query with the encoded history. Three independently trained members form "
-                    "each paper ensemble."
-                )
+                         label="Paper Figure 1: CreepPFN flow")
                 gr.Image(value=str(figures / "model_architecture.png"), interactive=False,
-                         label="Attention architecture")
+                         label="Paper Figure 2: network architecture")
                 gr.Markdown(
                     "## Evidence\n"
-                    "The source-disjoint NU evaluation included 610 eligible curves from 65 literature sources and "
-                    "5,646 future readings. Source-macro NMAE was 17.40% (95% source-bootstrap interval 14.96–20.14%). "
-                    "Aggregate coverage of the nominal 90% marginal interval was 94.51%. These values describe the "
-                    "five evaluated fold ensembles. They are not a validation result for the pooled 15-member option.\n\n"
+                    "On 610 curves from 65 held-out NU literature sources, source-averaged NMAE was 15.94% "
+                    "(95% interval 13.78-18.22%), the lowest of all models tested under the same protocol. "
+                    "The 90% ranges covered 93.6% of later readings, the only model at nominal coverage. "
+                    "These values describe the five fold ensembles, not the pooled 15-member option.\n\n"
                     "## Main limits\n"
                     "The model is evaluated only through day 160. It omits humidity, mixture composition, loading age, "
-                    "stress history, and geometry as explicit application inputs. It does not enforce monotonic output. "
-                    "Intervals are marginal at each time. The model is a research forecast tool, not a structural design check."
+                    "stress history and geometry. It does not enforce monotonic output, and intervals are marginal at "
+                    "each time. Recycled-aggregate concrete is rare in the training data and was poorly forecast. "
+                    "The model is a research forecast tool, not a structural design check."
                 )
 
             with gr.Tab("Paper figures"):
-                gr.Markdown("## Data characteristics")
-                gr.Image(value=str(figures / "data_characteristics.png"), interactive=False,
-                         label="Paper Figure 2")
-                gr.Markdown(
-                    "The panels compare cohort distributions, modulus availability, early-reading counts, and source sizes. "
-                    "Unequal source sizes motivate source-level evaluation."
-                )
-                gr.Markdown("## NU prediction results")
-                gr.Image(value=str(figures / "nu_results.png"), interactive=False,
-                         label="Paper Figure 3")
-                gr.Markdown(
-                    "Points show source-macro normalized mean absolute error (NMAE); whiskers are source-bootstrap intervals."
-                )
-                gr.Markdown("## Architecture ablations")
-                gr.Image(value=str(figures / "architecture_ablation.png"), interactive=False,
-                         label="Paper Figure 4")
-                gr.Markdown(
-                    "Positive differences indicate higher error after removing a component. Removing both attention paths "
-                    "or the query-gap input produced intervals above zero under the tested design."
-                )
-                gr.Markdown("## Grouped SHAP attribution")
-                gr.Image(value=str(figures / "shap_attribution.png"), interactive=False,
-                         label="Grouped SHAP analysis")
-                gr.Markdown(
-                    "Early measurement history plus its anchor has the largest attribution magnitude. These values "
-                    "explain fitted predictions relative to selected backgrounds; they are not causal material effects."
-                )
-                gr.Markdown("## Forecast examples")
-                gr.Image(value=str(figures / "forecast_examples.png"), interactive=False,
-                         label="NU and external forecast examples")
-                gr.Markdown(
-                    "Black points are observed context, orange crosses are later measurements, the blue line is the "
-                    "ensemble forecast, and shading is the central 90% marginal interval."
-                )
+                for name, label, text in [
+                    ("data_characteristics.png", "Data characteristics",
+                     "NU, KMUTT (47) and literature (19) cohorts, modulus availability, early readings and source sizes."),
+                    ("nu_results.png", "Test error and coverage",
+                     "Source-averaged NMAE with 95% intervals and coverage of the 90% range for all models."),
+                    ("forecast_examples.png", "Forecast examples",
+                     "Black points are model inputs, orange crosses later measurements, the line the forecast and "
+                     "shading the 90% range."),
+                    ("test_duration.png", "Effect of test duration",
+                     "Forecast error and coverage for 3 to 28 days of readings."),
+                    ("shap_descriptors.png", "SHAP contributions of the material descriptors",
+                     "Contributions with each specimen's early readings held fixed; model behaviour, not causal effects."),
+                ]:
+                    gr.Markdown(f"## {label}")
+                    gr.Image(value=str(figures / name), interactive=False, label=label)
+                    gr.Markdown(text)
     return demo
 
 

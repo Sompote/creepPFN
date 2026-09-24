@@ -1,21 +1,7 @@
 # Data notice
 
-`data/folds/` contains processed records used by the reported source-disjoint
-experiments. Each fold contains:
+`data/folds/` contains the processed records used in the source-disjoint experiments of the paper. Each fold folder holds `split_manifest.csv`, which lists the curve descriptors and their train, validation or test membership, and `real_observations.csv`, which gives the elapsed times and the compliance increase after the first reading. It also holds `prior.json`, the hierarchical Bayesian prior fitted only on that fold's training sources, which stores 2,000 posterior draws of the Kelvin4 model parameters together with the discrepancy scale, and `diagnostics.json`, which records the sampler diagnostics. The file `training_curve_fits.csv` keeps the least-squares curve fits of the training curves for reference.
 
-- `split_manifest.csv`: curve descriptors and train/validation/test membership;
-- `real_observations.csv`: elapsed times and first-reading-referenced compliance;
-- `prior.json`: the synthetic-task prior fitted only on that fold's training sources;
-- `training_curve_fits.csv`: diagnostics for curves used to fit the generator.
+The folds repeat observations because each curve takes a different role in each outer partition, and they are kept in this form so that every checkpoint can be verified against its exact prior and split. The original NU database should be cited as Hubler, Wendner and Bažant (2015), *ACI Materials Journal*, 112, 547–558, DOI: 10.14359/51687453, and users are responsible for confirming the terms that apply to redistribution and reuse of that database.
 
-The folds duplicate observations because each curve has a different role across
-outer partitions. They are retained in this form so every checkpoint can be
-verified against its exact prior and split. The original NU database should be
-cited through Hubler, Wendner, and Bazant (2015), *ACI Materials Journal*, 112,
-547–558, DOI: 10.14359/51687453. Users are responsible for confirming the terms
-that apply to redistribution and reuse of the underlying database.
-
-The KMUTT and separately labelled literature workbooks used for descriptive
-external evaluation are not required to train the NU models and are not included
-in this bundle. Their unresolved specimen-level publication mapping is documented
-in the manuscript. No synthetic task is an independent experiment.
+The external test curves, 47 from the KMUTT laboratory and 19 compiled from published studies, are not needed to train or run the models and are not included in this repository. The paper and its supplement describe how their origin was checked, including the reassignment of six curves to the laboratory set and the probable literature sources of the remaining blocks. `data/results/creeppfn_test_predictions.csv` holds the pooled test forecasts of the paper. No synthetic task is an independent experiment.

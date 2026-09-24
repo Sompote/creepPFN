@@ -51,6 +51,22 @@ ABLATIONS = {
     "linear_query": dict(query_mlp=False),
     "fixed_scale": dict(learn_scale=False),
 }
+# Arms nested under the no-query-residual reference architecture.
+# The reference itself is the existing "no_query_skip" arm; each entry below
+# removes exactly one further component, so every contrast against the
+# reference isolates a single architectural change. Without these fits the
+# arms above differ from the reference by two changes, because they all
+# retain query_skip=True.
+NESTED_REFERENCE = "no_query_skip"
+NESTED_ABLATIONS = {
+    "ns_no_context_attention": dict(query_skip=False, self_attention=False),
+    "ns_no_query_attention": dict(query_skip=False, cross_attention=False),
+    "ns_no_attention": dict(query_skip=False, self_attention=False, cross_attention=False),
+    "ns_no_properties": dict(query_skip=False, use_properties=False),
+    "ns_no_query_gap": dict(query_skip=False, use_query_gap=False),
+    "ns_linear_query": dict(query_skip=False, query_mlp=False),
+    "ns_fixed_scale": dict(query_skip=False, learn_scale=False),
+}
 SEEDS = (42, 43, 44)
 
 

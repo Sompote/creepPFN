@@ -15,7 +15,7 @@ class CreepPFN(nn.Module):
     def __init__(self, width=64, layers=2, heads=4, dropout=0.05,
                  self_attention=True, cross_attention=True, use_properties=True,
                  use_query_gap=True, query_skip=True, query_mlp=True,
-                 learn_scale=True):
+                 learn_scale=True, feature_dim=7):
         super().__init__()
         if width % heads:
             raise ValueError('Width must be divisible by attention heads')
@@ -23,7 +23,7 @@ class CreepPFN(nn.Module):
                            self_attention=self_attention, cross_attention=cross_attention,
                            use_properties=use_properties, use_query_gap=use_query_gap,
                            query_skip=query_skip, query_mlp=query_mlp,
-                           learn_scale=learn_scale)
+                           learn_scale=learn_scale, feature_dim=feature_dim)
         self.self_attention = self_attention
         self.cross_attention_enabled = cross_attention
         self.use_properties = use_properties
@@ -31,7 +31,7 @@ class CreepPFN(nn.Module):
         self.query_skip = query_skip
         self.learn_scale = learn_scale
         self.context_projection = nn.Linear(3, width)
-        self.property_projection = nn.Sequential(nn.Linear(6, width), nn.GELU(), nn.Linear(width, width))
+        self.property_projection = nn.Sequential(nn.Linear(feature_dim + 1, width), nn.GELU(), nn.Linear(width, width))
         if self_attention:
             block = nn.TransformerEncoderLayer(width, heads, 3 * width, dropout,
                                                activation="gelu", batch_first=True, norm_first=True)

@@ -14,7 +14,8 @@ from creep_prior.pipeline import (
 
 def example_prior():
     donors = pd.DataFrame(dict(rho=[2200., 2400.], fc=[30., 60.],
-                               E28=[25000., np.nan], anchor_day=[1., 0.]))
+                               E28=[25000., np.nan], anchor_day=[1., 0.],
+                               stress_ratio=[.4, np.nan]))
     prior = dict(donor_properties=donors.to_dict("records"), donor_groups=["g1", "g2"],
                  donor_times=[[1., 3., 7., 28., 90., 160.], [0., 2., 10., 30., 100.]],
                  training_curve_ids=["a", "b"], scaler=fit_scaler(donors), families={})
@@ -94,7 +95,8 @@ class LeakageTests(unittest.TestCase):
 
     def test_evaluation_descriptors_do_not_change_training_scaler(self):
         train = pd.DataFrame(dict(rho=[2000., 2400.], fc=[30., 60.],
-                                  E28=[20000., 40000.], anchor_day=[0., 1.]))
+                                  E28=[20000., 40000.], anchor_day=[0., 1.],
+                                  stress_ratio=[.3, .5]))
         scaler = fit_scaler(train)
         expected = transform(train, scaler)
         evaluation = train.copy()

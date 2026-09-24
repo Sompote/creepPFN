@@ -26,6 +26,7 @@ def _predict(args):
         args.rho,
         args.fc,
         args.E28,
+        stress_ratio=args.stress_ratio,
         fold=args.fold,
         device=args.device,
         root=args.root,
@@ -58,19 +59,21 @@ def _verify(args):
 
 
 def _train(args):
-    """Reproduce one selected fold/seed pretraining and fine-tuning run."""
-    from .architecture_study import fit_run
+    """Reproduce one fold/seed run: pretraining on the hierarchical prior, then fine-tuning."""
+    from . import architecture_study as study
+    from .bayes.sampler import sample_tasks
 
+    study.sample_tasks = sample_tasks          # synthetic tasks from the hierarchical Bayesian prior
     bundle = repository_root(args.root)
     fold_name = args.fold if args.fold.startswith("fold_") else f"fold_{int(args.fold):02d}"
-    choice = json.loads((bundle / "data/architecture_choice.json").read_text())
+    choice = json.loads((bundle / "data/training_settings.json").read_text())
     if fold_name not in choice["fold_settings"]:
         raise ValueError(f"Unknown fold: {fold_name}")
     selected = choice["fold_settings"][fold_name]
-    fit_run(SimpleNamespace(
+    study.fit_run(SimpleNamespace(
         fold=bundle / "data/folds" / fold_name,
         out=args.out,
-        label="reproduced_main",
+        label="hier_full",
         model_config=json.dumps(selected["model_config"]),
         pre_lr=selected["pre_lr"],
         fine_lr=selected["fine_lr"],
@@ -95,6 +98,8 @@ def parser() -> argparse.ArgumentParser:
     predict.add_argument("--fc", type=float, required=True, help="Compressive strength in MPa.")
     predict.add_argument("--E28", type=float, default=float("nan"),
                          help="28-day modulus in MPa; omit when unavailable.")
+    predict.add_argument("--stress-ratio", type=float, default=float("nan"),
+                         help="Applied stress / compressive strength at loading; omit when unavailable.")
     predict.add_argument("--query-days", type=float, nargs="+", required=True)
     predict.add_argument("--fold", default="all",
                          choices=("all", "fold_01", "fold_02", "fold_03", "fold_04", "fold_05"))
@@ -115,7 +120,7 @@ def parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify", help="Validate packaged priors and checkpoints.")
     verify.set_defaults(func=_verify)
 
-    train = sub.add_parser("train", help="Reproduce one fold/seed selected-model run.")
+    train = sub.add_parser("train", help="Reproduce one fold/seed run on the hierarchical prior.")
     train.add_argument("--fold", default="fold_01",
                        choices=("fold_01", "fold_02", "fold_03", "fold_04", "fold_05"))
     train.add_argument("--seed", type=int, default=45)
